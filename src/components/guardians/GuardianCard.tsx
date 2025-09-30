@@ -25,8 +25,8 @@ export default function GuardianCard({ g, onVerify, onResend, onEdit, onDelete }
       <div className="flex gap-2">
         {!g.verified && <button onClick={() => onVerify(g.id)} className="h-9 px-3 rounded border">Verify</button>}
         {!g.verified && <button onClick={() => onResend(g.id)} className="h-9 px-3 rounded border">Resend</button>}
-        <a href={`tel:${g.phoneNumber}`} className="h-9 px-3 rounded border">Call</a>
-        <a href={`sms:${g.phoneNumber}`} className="h-9 px-3 rounded border">Message</a>
+        <a href={`tel:${g.phoneNumber}`} className="h-9 px-3 rounded border" onClick={(e) => e.stopPropagation()}>Call</a>
+        <a href={`sms:${g.phoneNumber}`} className="h-9 px-3 rounded border" onClick={(e) => e.stopPropagation()}>Message</a>
         <button onClick={() => onEdit(g)} className="h-9 px-3 rounded border">Edit</button>
         <button onClick={() => onDelete(g.id)} className="h-9 px-3 rounded border text-red-600">Delete</button>
       </div>

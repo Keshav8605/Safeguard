@@ -16,12 +16,11 @@ const schema = z.object({
 type Values = z.infer<typeof schema>
 
 export default function AddGuardian({ onAdded }: { onAdded?: () => void }) {
-  const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { relationship: 'Family', priority: 'Primary' } })
+  const { register, handleSubmit, formState: { errors, isSubmitting }, reset, watch } = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { relationship: 'Family', priority: 'Primary' } })
   const [dial, setDial] = useState('+1')
   const [photo, setPhoto] = useState<File | undefined>()
-  const fullPhone = useMemo(() => `${dial}${(watchPhone() || '').replace(/\D/g, '')}`, [dial])
-  const [phoneVal, setPhoneVal] = useState('')
-  function watchPhone() { return phoneVal }
+  const phoneRaw = watch('phone') || ''
+  const fullPhone = useMemo(() => `${dial}${phoneRaw.replace(/\D/g, '')}`, [dial, phoneRaw])
 
   async function onSubmit(values: Values) {
     try {
@@ -60,8 +59,8 @@ export default function AddGuardian({ onAdded }: { onAdded?: () => void }) {
         </div>
         <div className="flex-1">
           <label className="block text-sm">Phone</label>
-          <input value={phoneVal} onChange={(e) => setPhoneVal(e.target.value)} className="mt-1 w-full h-11 border rounded px-3" />
-          {errors.phone && <p className="text-sm text-red-600">{errors.phone.message}</p>}
+          <input {...register('phone')} className="mt-1 w-full h-11 border rounded px-3" />
+        {errors.phone && <p className="text-sm text-red-600">{errors.phone.message}</p>}
         </div>
       </div>
       <div>

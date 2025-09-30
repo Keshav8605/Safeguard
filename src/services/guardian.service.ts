@@ -7,10 +7,10 @@ import {
     deleteDoc,
     getDocs,
     query,
-    where,
     orderBy,
     serverTimestamp,
-    Timestamp
+    Timestamp,
+    setDoc
   } from 'firebase/firestore';
   import { db, auth, storage } from '../config/firebase';
   import { EmergencyContact } from '../types/firebase.types';
@@ -30,6 +30,16 @@ import {
         const user = auth.currentUser;
         if (!user) throw new Error('No user logged in');
   
+        // Ensure parent user document exists (helps with Firestore security rules that reference it)
+        try {
+          const userDocRef = doc(db, 'users', user.uid);
+          // Merge so we do not overwrite anything if it already exists
+          await updateDoc(userDocRef, { lastActivityAt: serverTimestamp() });
+        } catch {
+          // If update fails because doc doesn't exist, create a minimal doc
+          const userDocRef = doc(db, 'users', user.uid);
+          await setDoc(userDocRef, { createdAt: serverTimestamp(), lastActivityAt: serverTimestamp() }, { merge: true } as any);
+        }
         // optional photo upload
         let photoUrl: string | undefined
         if (photoFile) {
@@ -42,15 +52,19 @@ import {
         const code = Math.floor(100000 + Math.random() * 900000).toString()
 
         const guardian: Omit<EmergencyContact, 'id'> = {
-          ...guardianData,
+          name: guardianData.name,
+          phoneNumber: guardianData.phoneNumber,
+          priority: guardianData.priority,
+          relationship: guardianData.relationship,
           userId: user.uid,
           verified: false,
           verificationCode: code,
           verificationSentAt: serverTimestamp() as Timestamp,
-          photoUrl,
           createdAt: serverTimestamp() as Timestamp,
-          updatedAt: serverTimestamp() as Timestamp
-        };
+          updatedAt: serverTimestamp() as Timestamp,
+          ...(guardianData.email ? { email: guardianData.email } : {}),
+          ...(photoUrl ? { photoUrl } : {}),
+        } as unknown as Omit<EmergencyContact, 'id'>;
   
         const docRef = await addDoc(this.getGuardiansCollection(user.uid), guardian);
         
@@ -58,9 +72,9 @@ import {
         await this.sendVerificationRequest(docRef.id, guardianData.phoneNumber, guardianData.name, code);
   
         return docRef.id;
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error adding guardian:', error);
-        throw new Error('Failed to add emergency contact');
+        throw new Error(error?.message || 'Failed to add emergency contact');
       }
     }
   
@@ -139,7 +153,7 @@ import {
     }
   
   // Verify Guardian with code (placeholder: trust client)
-  async verifyGuardian(guardianId: string, code: string): Promise<void> {
+  async verifyGuardian(guardianId: string, _code: string): Promise<void> {
       try {
         const user = auth.currentUser;
         if (!user) throw new Error('No user logged in');
@@ -158,7 +172,7 @@ import {
   
   // Send verification request (to be implemented with backend/cloud function)
   private async sendVerificationRequest(
-    guardianId: string,
+    _guardianId: string,
     phoneNumber: string,
     name: string,
     code: string
@@ -177,9 +191,7 @@ import {
   
     // Notify Guardians (for emergency situations)
     async notifyGuardians(
-      message: string,
-      location?: { latitude: number; longitude: number },
-      incidentId?: string
+      message: string
     ): Promise<void> {
       try {
         const user = auth.currentUser;
@@ -190,7 +202,7 @@ import {
   
         // TODO: Implement Cloud Function to send notifications
         const notificationPromises = verifiedGuardians.map(guardian => 
-          this.sendEmergencyNotification(guardian, message, location, incidentId)
+          this.sendEmergencyNotification(guardian, message)
         );
   
         await Promise.all(notificationPromises);
@@ -213,12 +225,9 @@ import {
     // Send emergency notification (placeholder for Cloud Function)
     private async sendEmergencyNotification(
       guardian: EmergencyContact,
-      message: string,
-      location?: { latitude: number; longitude: number },
-      incidentId?: string
+      message: string
     ): Promise<void> {
       console.log(`Notifying ${guardian.name}:`, message);
-      
       // TODO: Implement Cloud Function call for SMS/Call/Email
       // Based on guardian.notificationPreference
     }

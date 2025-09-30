@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
+import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useGuardians } from '@/hooks/useGuardians'
 import { useIncidents } from '@/hooks/useIncidents'
@@ -158,16 +159,18 @@ export default function Dashboard() {
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {[
           { label: 'Add Guardian', href: '/guardians' },
-          { label: 'Share Location', href: '/settings' },
+          { label: 'Share Location', href: '/location' },
           { label: 'Report Incident', href: '/incidents' },
           { label: 'Safe Places', href: '/settings' },
           { label: 'Check-in Timer', href: '/settings' },
           { label: 'Evidence Vault', href: '/evidence' },
           { label: 'Fake Call', href: '/fake-call' },
         ].map((a) => (
-          <motion.a key={a.label} href={a.href} whileHover={{ y: -2 }} className="h-12 rounded border bg-white grid place-items-center shadow-sm font-medium">
-            {a.label}
-          </motion.a>
+          <motion.div key={a.label} whileHover={{ y: -2 }} className="h-12 rounded border bg-white grid place-items-center shadow-sm font-medium">
+            <Link to={a.href} className="block w-full h-full text-center leading-[3rem]">
+              {a.label}
+            </Link>
+          </motion.div>
         ))}
         <div className="sm:col-span-3 lg:col-span-5"><CheckInButton /></div>
       </div>
@@ -197,7 +200,7 @@ export default function Dashboard() {
           <div>
             <h3 className="font-semibold">Your Profile</h3>
             <p className="text-sm text-gray-600">{currentUser?.displayName || currentUser?.email}</p>
-            <a href="/profile" className="text-sm text-blue-600">Account settings</a>
+            <Link to="/profile" className="text-sm text-blue-600">Account settings</Link>
           </div>
           <div>
             <h4 className="font-medium mb-2">Weather & Time</h4>
@@ -213,12 +216,12 @@ export default function Dashboard() {
           {[
             { label: 'Home', href: '/dashboard' },
             { label: 'Guardians', href: '/guardians' },
-            { label: 'Location', href: '/settings' },
+            { label: 'Location', href: '/location' },
             { label: 'Community', href: '/' },
             { label: 'Settings', href: '/settings' },
           ].map((i) => (
             <li key={i.label} className="text-center">
-              <a href={i.href} className="block py-3">{i.label}</a>
+              <Link to={i.href} className="block py-3">{i.label}</Link>
             </li>
           ))}
         </ul>
