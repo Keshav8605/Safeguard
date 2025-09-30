@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Emergency Notifications (Twilio + Cloud Functions)
 
 This app expects an HTTP endpoint at `/api/notify-guardians` to send SMS/FCM.
@@ -34,3 +35,6 @@ This app expects an HTTP endpoint at `/api/notify-guardians` to send SMS/FCM.
 
 Environment variables: set `TWILIO_SID`, `TWILIO_TOKEN`, `TWILIO_FROM`.
 
+=======
+# Safeguard
+>>>>>>> 5532b9843bbe40316b78707293bd7d0c566d1361
