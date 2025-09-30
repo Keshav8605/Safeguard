@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #1E40AF;
+  --color-secondary: #7C3AED;
+  --color-emergency: #DC2626;
+  --color-success: #059669;
+  --color-background: #F9FAFB;
+  color-scheme: light;
+}
+
+@layer base {
+  body { @apply bg-[--color-background] text-gray-900 antialiased; }
+}
+
+@layer components {
+  .container-responsive { @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8; }
+}
+
+/* Animation utilities */
+.anim-fade-in { animation: fade-in 400ms ease both; }
+.anim-slide-up { animation: slide-up 500ms ease both; }
+.anim-stagger > * { opacity: 0; animation: fade-in 400ms ease both; }
+.anim-stagger > *:nth-child(1) { animation-delay: 60ms }
+.anim-stagger > *:nth-child(2) { animation-delay: 120ms }
+.anim-stagger > *:nth-child(3) { animation-delay: 180ms }
+.anim-stagger > *:nth-child(4) { animation-delay: 240ms }
+.anim-stagger > *:nth-child(5) { animation-delay: 300ms }
+.btn-anim { transition: transform 150ms ease, box-shadow 150ms ease, background-color 150ms ease; }
+.btn-anim:hover { transform: translateY(-1px) scale(1.01); box-shadow: 0 6px 20px rgba(0,0,0,0.06) }
+.card-anim { animation: slide-up 500ms ease both; }
+.toast-anim { animation: fade-in 250ms ease both; }
+.spin { animation: spin 1s linear infinite; }
+
+@keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+@keyframes slide-up { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes spin { from { transform: rotate(0) } to { transform: rotate(360deg) } }
