@@ -6,6 +6,7 @@ import App from './App'
 import { AuthProvider } from './contexts/AuthContext'
 import './index.css'
 import ErrorBoundary from './components/shared/ErrorBoundary'
+import { registerSW } from 'virtual:pwa-register'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
@@ -42,3 +43,8 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </BrowserRouter>
   </React.StrictMode>
 )
+
+// Register PWA service worker (auto-update)
+try {
+  const updateSW = registerSW({ immediate: true })
+} catch {}

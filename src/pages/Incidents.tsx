@@ -7,16 +7,17 @@ export default function Incidents() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => { void load() }, [])
-  async function load() {
+  useEffect(() => {
     setLoading(true); setError(null)
     try {
-      const list = await incidentService.getUserIncidents()
-      setItems(list)
+      const unsub = incidentService.subscribeUserIncidents(100, (list) => {
+        setItems(list); setLoading(false)
+      }, (e) => { setError(e?.message || 'Failed to fetch incidents'); setLoading(false) })
+      return () => { try { unsub() } catch {} }
     } catch (e: any) {
-      setError(e?.message || 'Failed to fetch incidents')
-    } finally { setLoading(false) }
-  }
+      setError(e?.message || 'Failed to fetch incidents'); setLoading(false)
+    }
+  }, [])
 
   return (
     <div className="p-6 space-y-4">

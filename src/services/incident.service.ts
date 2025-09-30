@@ -7,6 +7,7 @@ import {
     deleteDoc,
     getDoc,
     getDocs,
+    onSnapshot,
     query,
     where,
     orderBy,
@@ -22,8 +23,29 @@ import {
   
   export class IncidentService {
     private incidentsCollection = collection(db, 'incidents');
+  private draftKey = 'sg_incident_draft';
+
+  // Draft helpers (localStorage)
+  saveDraft(partial: any): void {
+    try {
+      localStorage.setItem(this.draftKey, JSON.stringify({ ...partial, _savedAt: Date.now() }));
+    } catch {}
+  }
+
+  loadDraft(): any | null {
+    try {
+      const raw = localStorage.getItem(this.draftKey);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  clearDraft(): void {
+    try { localStorage.removeItem(this.draftKey) } catch {}
+  }
   
-    // Report New Incident
+  // Report New Incident
     async reportIncident(
       incidentData: Omit<Incident, 'id' | 'userId' | 'createdAt' | 'updatedAt'>,
       evidenceFiles?: File[]
@@ -38,15 +60,21 @@ import {
           evidence = await this.uploadEvidence(user.uid, evidenceFiles);
         }
   
-        const incident: Omit<Incident, 'id'> = {
+      // Ensure timestamp is valid; fallback to now
+      const eventTime = (incidentData as any).timestamp instanceof Date
+        ? (incidentData as any).timestamp
+        : (typeof (incidentData as any).timestamp === 'object' ? (incidentData as any).timestamp : new Date());
+
+      const incident: Omit<Incident, 'id'> = {
           ...incidentData,
           userId: user.uid,
           evidence,
           status: 'reported',
           guardianNotified: false,
           authoritiesContacted: false,
-          createdAt: serverTimestamp() as Timestamp,
-          updatedAt: serverTimestamp() as Timestamp
+        timestamp: eventTime as any,
+        createdAt: serverTimestamp() as Timestamp,
+        updatedAt: serverTimestamp() as Timestamp
         };
   
         const docRef = await addDoc(this.incidentsCollection, incident);
@@ -64,13 +92,18 @@ import {
       }
     }
   
-    // Upload Evidence Files
+  // Upload Evidence Files
     private async uploadEvidence(userId: string, files: File[]): Promise<Evidence[]> {
       const timestamp = Date.now();
       const evidence: Evidence[] = [];
   
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+      // Skip files over 10MB
+      if (file.size > 10 * 1024 * 1024) {
+        console.warn('Skipping large file (>10MB):', file.name);
+        continue;
+      }
         const fileName = `${timestamp}_${i}_${file.name}`;
         const storageRef = ref(storage, `incidents/${userId}/${fileName}`);
   
@@ -110,18 +143,31 @@ import {
         const user = auth.currentUser;
         if (!user) throw new Error('No user logged in');
   
-        const q = query(
-          this.incidentsCollection,
-          where('userId', '==', user.uid),
-          orderBy('timestamp', 'desc'),
-          limit(limitCount)
-        );
-  
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as Incident));
+        try {
+          const q = query(
+            this.incidentsCollection,
+            where('userId', '==', user.uid),
+            orderBy('timestamp', 'desc'),
+            limit(limitCount)
+          );
+          const snapshot = await getDocs(q);
+          return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          } as Incident));
+        } catch (err: any) {
+          // Fallback if composite index not yet created
+          if (err?.code === 'failed-precondition') {
+            const qNoOrder = query(
+              this.incidentsCollection,
+              where('userId', '==', user.uid),
+              limit(limitCount)
+            );
+            const snapshot = await getDocs(qNoOrder);
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Incident));
+          }
+          throw err;
+        }
       } catch (error) {
         console.error('Error fetching incidents:', error);
         throw new Error('Failed to fetch incidents');
@@ -355,7 +401,48 @@ import {
         console.error('Error getting incident stats:', error);
         throw new Error('Failed to get statistics');
       }
-    }
   }
-  
-  export const incidentService = new IncidentService();
+
+  // Subscribe to user's incidents in real-time
+  subscribeUserIncidents(limitCount: number, onChange: (list: Incident[]) => void, onError?: (e: any) => void) {
+    const user = auth.currentUser;
+    if (!user) throw new Error('No user logged in');
+    const buildOrdered = () => query(
+      this.incidentsCollection,
+      where('userId', '==', user.uid),
+      orderBy('timestamp', 'desc'),
+      limit(limitCount || 50)
+    );
+    const buildUnordered = () => query(
+      this.incidentsCollection,
+      where('userId', '==', user.uid),
+      limit(limitCount || 50)
+    );
+
+    let unsubscribe: () => void = () => {};
+    const startUnordered = () => {
+      try {
+        unsubscribe();
+      } catch {}
+      unsubscribe = onSnapshot(buildUnordered(), (snap) => {
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as Incident));
+        onChange(items);
+      }, (err) => onError?.(err));
+    };
+
+    unsubscribe = onSnapshot(buildOrdered(), (snap) => {
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as Incident));
+      onChange(items);
+    }, (err: any) => {
+      if (err?.code === 'failed-precondition') {
+        startUnordered();
+      } else {
+        onError?.(err);
+      }
+    });
+
+    return () => { try { unsubscribe(); } catch {} };
+  }
+}
+
+export const incidentService = new IncidentService();

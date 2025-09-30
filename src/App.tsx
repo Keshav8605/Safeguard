@@ -58,7 +58,7 @@ export default function App() {
       <Route path="/fake-call" element={<ProtectedRoute><FakeCallPage /></ProtectedRoute>} />
       <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
       <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
-      <Route path="/admin" element={<ProtectedRoute><AdminGuard><AdminIndex /></AdminGuard></ProtectedRoute>}>
+      <Route path="/admin" element={<AdminIndex />}>
         <Route path="users" element={<AdminUsers />} />
         <Route path="incidents" element={<AdminIncidents />} />
         <Route path="community" element={<AdminCommunity />} />

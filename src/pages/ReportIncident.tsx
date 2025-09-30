@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { incidentService } from '@/services/incident.service'
 import toast from 'react-hot-toast'
 import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 
 const schema = z.object({
   category: z.enum(['harassment', 'assault', 'stalking', 'suspicious', 'eve_teasing', 'unsafe_area', 'other']),
@@ -27,6 +28,7 @@ const schema = z.object({
 type Values = z.infer<typeof schema>
 
 export default function ReportIncidentPage() {
+  const navigate = useNavigate()
   const { register, handleSubmit, setValue, watch, getValues, formState: { errors, isSubmitting } } = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { severity: 'medium', category: 'harassment', anonymous: true } })
   const [files, setFiles] = useState<File[]>([])
   const mapEl = useRef<HTMLDivElement | null>(null)
@@ -129,6 +131,7 @@ export default function ReportIncidentPage() {
       const id = await incidentService.reportIncident(data, files)
       toast.success(`Report submitted. ID: ${id}`)
       incidentService.clearDraft()
+      navigate('/incidents')
     } catch (e: any) {
       toast.error(e?.message || 'Failed to submit incident')
     }

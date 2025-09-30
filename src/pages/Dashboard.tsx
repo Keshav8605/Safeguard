@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import toast from 'react-hot-toast'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
@@ -7,6 +8,8 @@ import { useIncidents } from '@/hooks/useIncidents'
 import { locationService } from '@/services/location.service'
 import { useSafetyScore } from '@/hooks/useSafetyScore'
 import { emergencyService } from '@/services/emergency.service'
+import { guardianService } from '@/services/guardian.service'
+import { notificationService } from '@/services/notification.service'
 import { useEmergencyStore } from '@/store/emergency.store'
 import EmergencyOverlay from '@/components/emergency/EmergencyOverlay'
 import CheckInButton from '@/components/checkin/CheckInButton'
@@ -68,17 +71,30 @@ export default function Dashboard() {
     document.body.animate([{ background: 'white' }, { background: '#fee2e2' }, { background: 'white' }], { duration: 600 })
     if (navigator.vibrate) navigator.vibrate([100, 50, 100])
 
-    const loc = await emergencyService.getLocation()
-    const sessionId = await emergencyService.createSession('sos', loc || undefined)
-    emergency.start(sessionId, 60 * 60 * 1000)
-    void emergencyService.logActivity(sessionId, 'sos_pressed', { loc })
+    try {
+      const loc = await emergencyService.getLocation()
+      const sessionId = await emergencyService.createSession('sos', loc || undefined)
+      emergency.start(sessionId, 60 * 60 * 1000)
+      void emergencyService.logActivity(sessionId, 'sos_pressed', { loc })
 
-    // Start audio recording (best effort)
-    void emergencyService.startRecording()
+      // Start audio recording (best effort)
+      void emergencyService.startRecording()
 
-    // Notify guardians via backend function
-    const maps = loc ? `https://maps.google.com/?q=${loc.latitude},${loc.longitude}` : undefined
-    void emergencyService.notifyGuardians(sessionId, maps)
+      // Notify guardians via backend function (best effort)
+      const maps = loc ? `https://maps.google.com/?q=${loc.latitude},${loc.longitude}` : undefined
+      void emergencyService.notifyGuardians(sessionId, maps)
+
+      // Immediate client-side guardian notification/log as fallback
+      const message = `SOS activated${loc ? ` at ${loc.latitude.toFixed(5)}, ${loc.longitude.toFixed(5)}` : ''}. Session ${sessionId}.`;
+      try { await guardianService.notifyGuardians(message) } catch {}
+      try { await notificationService.log('sos', 'push', { title: 'SOS Activated', body: message, url: maps, priority: 'high' }) } catch {}
+
+      toast.success('Emergency activated. Notifying guardians...')
+    } catch (err: any) {
+      // Common cause: user not authenticated
+      console.error('SOS failed', err)
+      toast.error(err?.message || 'Unable to start emergency. Please login and try again.')
+    }
   }
 
   function onSOSKey(e: React.KeyboardEvent) {
@@ -161,7 +177,7 @@ export default function Dashboard() {
           { label: 'Add Guardian', href: '/guardians' },
           { label: 'Share Location', href: '/location' },
           { label: 'Report Incident', href: '/incidents' },
-          { label: 'Safe Places', href: '/settings' },
+          { label: 'Safe Places', href: '/community' },
           { label: 'Check-in Timer', href: '/settings' },
           { label: 'Evidence Vault', href: '/evidence' },
           { label: 'Fake Call', href: '/fake-call' },
@@ -217,7 +233,7 @@ export default function Dashboard() {
             { label: 'Home', href: '/dashboard' },
             { label: 'Guardians', href: '/guardians' },
             { label: 'Location', href: '/location' },
-            { label: 'Community', href: '/' },
+            { label: 'Community', href: '/community' },
             { label: 'Settings', href: '/settings' },
           ].map((i) => (
             <li key={i.label} className="text-center">

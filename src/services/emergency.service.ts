@@ -32,7 +32,7 @@ export class EmergencyService {
       updatedAt: serverTimestamp() as Timestamp,
       status: 'active',
       type,
-      location,
+      ...(location ? { location } : {}),
     }
     const ref = await addDoc(this.emergenciesCol, session)
     return ref.id
@@ -46,9 +46,13 @@ export class EmergencyService {
   // Placeholder: invoke your backend/Cloud Function that integrates Twilio SMS and FCM
   async notifyGuardians(sessionId: string, locationUrl?: string): Promise<void> {
     try {
+      const token = await auth.currentUser?.getIdToken().catch(() => undefined)
       await fetch('/api/notify-guardians', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ sessionId, locationUrl }),
       })
     } catch (_) {
