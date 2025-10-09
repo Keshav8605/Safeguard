@@ -64,6 +64,7 @@ In your Render service settings, add these environment variables:
 |----------|-------|-------------|
 | `NODE_ENV` | `production` | Environment setting |
 | `VITE_FIREBASE_API_KEY` | Your Firebase API key | Firebase configuration |
+| `VITE_GOOGLE_MAPS_KEY` | Your Google Maps API key | Maps JavaScript/Places |
 | `VITE_FIREBASE_AUTH_DOMAIN` | `your_project_id.firebaseapp.com` | Firebase auth domain |
 | `VITE_FIREBASE_PROJECT_ID` | Your project ID | Firebase project ID |
 | `VITE_FIREBASE_STORAGE_BUCKET` | `your_project_id.appspot.com` | Firebase storage bucket |
