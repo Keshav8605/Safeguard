@@ -5,7 +5,8 @@ WORKDIR /app
 
 # Leverage cached deps when only source changes
 COPY package*.json ./
-RUN npm ci
+# Ensure optional native platform binaries (e.g., Rollup) are installed on Alpine (musl)
+RUN npm ci --include=optional
 
 # Copy source and build
 COPY . .
