@@ -16,7 +16,7 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
-    "types": ["jest", "@testing-library/jest-dom"],
+    "types": [],
     "paths": {
       "@/*": ["./src/*"],
       "@components/*": ["./src/components/*"],
@@ -26,5 +26,12 @@
     }
   },
   "include": ["src"],
+  "exclude": [
+    "src/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "jest.config.*",
+    "jest.setup.*"
+  ],
   "references": [{ "path": "./tsconfig.node.json" }]
 }
