@@ -1,26 +1,25 @@
-# Use Node.js 18 Alpine as base image
-FROM node:18-alpine
+## ---------- Builder stage ----------
+FROM node:18-alpine AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files
+# Leverage cached deps when only source changes
 COPY package*.json ./
+RUN npm ci
 
-# Install dependencies
-RUN npm ci --only=production
-
-# Copy source code
+# Copy source and build
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Install serve globally to serve the built files
-RUN npm install -g serve
+## ---------- Runtime stage ----------
+FROM node:18-alpine AS runtime
+WORKDIR /app
 
-# Expose port 3000
+# Copy built assets only
+COPY --from=builder /app/dist ./dist
+
+# Install a tiny static file server
+RUN npm install -g serve@14.2.1
+
 EXPOSE 3000
-
-# Start the application
 CMD ["serve", "-s", "dist", "-l", "3000"]
