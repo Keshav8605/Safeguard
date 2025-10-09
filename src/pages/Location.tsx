@@ -172,7 +172,7 @@ export default function LocationPage() {
           <div className="h-10 rounded border flex items-center justify-between px-2">
             <span>Geofence</span>
             <div className="flex items-center gap-2">
-              <input type="number" className="h-8 w-20 border rounded px-2" value={geofenceRadius} onChange={(e) => setGeofenceRadius(Math.max(100, Number(e.target.value) || 0))} />
+              <input type="number" className="h-8 w-20 border rounded px-2" value={geofenceRadius} onChange={(e) => setGeofenceRadius(Math.max(0, Number(e.target.value) || 0))} />
               <span className="text-xs text-gray-500">m</span>
               <button onClick={toggleGeofence} className={`h-8 px-3 rounded ${geofenceOn ? 'bg-blue-600 text-white' : 'border'}`}>{geofenceOn ? 'On' : 'Off'}</button>
             </div>

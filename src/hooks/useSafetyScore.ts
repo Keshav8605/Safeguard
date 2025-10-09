@@ -12,7 +12,7 @@ export function useSafetyScore(lat: number | null, lng: number | null) {
     async function run() {
       setLoading(true); setError(null)
       try {
-        const res = await SafetyDataService.getOrCalculateScore({ lat, lng }, new Date())
+        const res = await SafetyDataService.getOrCalculateScore({ lat: lat as number, lng: lng as number }, new Date())
         if (mounted) setScore(res)
       } catch (e: any) {
         if (mounted) setError(e?.message || 'Failed to load safety score')

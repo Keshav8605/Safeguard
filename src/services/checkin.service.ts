@@ -40,7 +40,7 @@ export class CheckInService {
     }
     const refDoc = await addDoc(this.getCol(user.uid), data)
     // Notify primary guardian (lowest priority number)
-    try { await guardianService.notifyGuardians('User checked in as safe', location ? { latitude: location.lat, longitude: location.lng } : undefined) } catch {}
+    try { await guardianService.notifyGuardians('User checked in as safe') } catch {}
     return refDoc.id
   }
 

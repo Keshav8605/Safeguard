@@ -18,7 +18,7 @@ import {
   } from 'firebase/firestore';
   import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
   import { db, storage, auth } from '../config/firebase';
-  import { Incident, Evidence, LocationData } from '../types/firebase.types';
+  import { Incident, Evidence } from '../types/firebase.types';
   import { SafetyDataService } from './safety-scoring';
   
   export class IncidentService {
@@ -54,35 +54,36 @@ import {
         const user = auth.currentUser;
         if (!user) throw new Error('No user logged in');
   
-        // Upload evidence files first
-        let evidence: Evidence[] = [];
-        if (evidenceFiles && evidenceFiles.length > 0) {
-          evidence = await this.uploadEvidence(user.uid, evidenceFiles);
-        }
-  
-      // Ensure timestamp is valid; fallback to now
-      const eventTime = (incidentData as any).timestamp instanceof Date
-        ? (incidentData as any).timestamp
-        : (typeof (incidentData as any).timestamp === 'object' ? (incidentData as any).timestamp : new Date());
+        // Ensure timestamp is valid; fallback to now
+        const eventTime = (incidentData as any).timestamp instanceof Date
+          ? (incidentData as any).timestamp
+          : (typeof (incidentData as any).timestamp === 'object' ? (incidentData as any).timestamp : new Date());
 
-      const incident: Omit<Incident, 'id'> = {
+        // Create incident document first (without evidence)
+        const incident: Omit<Incident, 'id'> = {
           ...incidentData,
           userId: user.uid,
-          evidence,
+          evidence: [], // Start with empty evidence
           status: 'reported',
           guardianNotified: false,
           authoritiesContacted: false,
-        timestamp: eventTime as any,
-        createdAt: serverTimestamp() as Timestamp,
-        updatedAt: serverTimestamp() as Timestamp
+          timestamp: eventTime as any,
+          createdAt: serverTimestamp() as Timestamp,
+          updatedAt: serverTimestamp() as Timestamp
         };
-  
+
+        // Save incident immediately
         const docRef = await addDoc(this.incidentsCollection, incident);
-  
-        // Notify guardians and invalidate safety score cache if high severity
+        
+        // Upload evidence files in parallel (non-blocking)
+        if (evidenceFiles && evidenceFiles.length > 0) {
+          this.uploadEvidenceAsync(user.uid, evidenceFiles, docRef.id);
+        }
+
+        // Notify guardians and invalidate cache in background (non-blocking)
         if (incidentData.severity === 'high' || incidentData.severity === 'critical') {
-          await this.notifyGuardiansOfIncident(docRef.id);
-          try { await SafetyDataService.invalidateScoreCache((incidentData as any).geohash || ''); } catch {}
+          this.notifyGuardiansAsync(docRef.id);
+          this.invalidateCacheAsync(incidentData);
         }
   
         return docRef.id;
@@ -92,18 +93,18 @@ import {
       }
     }
   
-  // Upload Evidence Files
+  // Upload Evidence Files (Sequential - for immediate use)
     private async uploadEvidence(userId: string, files: File[]): Promise<Evidence[]> {
       const timestamp = Date.now();
       const evidence: Evidence[] = [];
   
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-      // Skip files over 10MB
-      if (file.size > 10 * 1024 * 1024) {
-        console.warn('Skipping large file (>10MB):', file.name);
-        continue;
-      }
+        // Skip files over 10MB
+        if (file.size > 10 * 1024 * 1024) {
+          console.warn('Skipping large file (>10MB):', file.name);
+          continue;
+        }
         const fileName = `${timestamp}_${i}_${file.name}`;
         const storageRef = ref(storage, `incidents/${userId}/${fileName}`);
   
@@ -135,6 +136,83 @@ import {
       }
   
       return evidence;
+    }
+
+    // Upload Evidence Files in Parallel (Background)
+    private async uploadEvidenceAsync(userId: string, files: File[], incidentId: string): Promise<void> {
+      try {
+        const timestamp = Date.now();
+        const uploadPromises = files.map(async (file, i) => {
+          // Skip files over 10MB
+          if (file.size > 10 * 1024 * 1024) {
+            console.warn('Skipping large file (>10MB):', file.name);
+            return null;
+          }
+          
+          const fileName = `${timestamp}_${i}_${file.name}`;
+          const storageRef = ref(storage, `incidents/${userId}/${fileName}`);
+  
+          try {
+            // Upload file
+            await uploadBytes(storageRef, file);
+            
+            // Get download URL
+            const url = await getDownloadURL(storageRef);
+  
+            // Determine evidence type
+            let type: Evidence['type'] = 'document';
+            if (file.type.startsWith('image/')) type = 'photo';
+            else if (file.type.startsWith('video/')) type = 'video';
+            else if (file.type.startsWith('audio/')) type = 'audio';
+  
+            return {
+              type,
+              url,
+              uploadedAt: serverTimestamp() as Timestamp,
+              metadata: {
+                size: file.size,
+                mimeType: file.type
+              }
+            };
+          } catch (error) {
+            console.error('Error uploading evidence file:', error);
+            return null;
+          }
+        });
+
+        // Wait for all uploads to complete
+        const evidenceResults = await Promise.all(uploadPromises);
+        const evidence = evidenceResults.filter(item => item !== null) as Evidence[];
+
+        // Update incident with evidence
+        if (evidence.length > 0) {
+          const incidentRef = doc(db, 'incidents', incidentId);
+          await updateDoc(incidentRef, {
+            evidence: evidence,
+            updatedAt: serverTimestamp()
+          });
+        }
+      } catch (error) {
+        console.error('Error in async evidence upload:', error);
+      }
+    }
+
+    // Background guardian notification
+    private async notifyGuardiansAsync(incidentId: string): Promise<void> {
+      try {
+        await this.notifyGuardiansOfIncident(incidentId);
+      } catch (error) {
+        console.error('Error notifying guardians:', error);
+      }
+    }
+
+    // Background cache invalidation
+    private async invalidateCacheAsync(incidentData: any): Promise<void> {
+      try {
+        await SafetyDataService.invalidateScoreCache(incidentData.geohash || '');
+      } catch (error) {
+        console.error('Error invalidating cache:', error);
+      }
     }
   
     // Get User's Incidents
@@ -172,6 +250,11 @@ import {
         console.error('Error fetching incidents:', error);
         throw new Error('Failed to fetch incidents');
       }
+    }
+
+    // List current user's reports (alias for getUserIncidents for UI consistency)
+    async listMyReports(limitCount: number = 50): Promise<Incident[]> {
+      return this.getUserIncidents(limitCount)
     }
   
     // Get Incident by ID

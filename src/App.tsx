@@ -1,10 +1,12 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import PageTransition from '@/components/shared/PageTransition'
 import { useAuth } from '@/contexts/AuthContext'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import Reset from '@/pages/Reset'
 import LocationPage from '@/pages/Location'
+import '@/config/i18n'
+import LanguageGate from '@/pages/LanguageGate'
 
 // Pages
 import Home from '@/pages/Home'
@@ -35,6 +37,18 @@ const InlinePublicGuard = ({ children }: { children: React.ReactNode }) => {
 }
 
 export default function App() {
+  const [showLangGate, setShowLangGate] = useState(false)
+  useEffect(() => {
+    try {
+      const seen = localStorage.getItem('sg_lang_seen')
+      if (!seen) setShowLangGate(true)
+    } catch {}
+  }, [])
+
+  if (showLangGate) {
+    return <LanguageGate onContinue={() => { try { localStorage.setItem('sg_lang_seen', '1') } catch {}; setShowLangGate(false) }} />
+  }
+
   return (
     <PageTransition>
       <Routes>

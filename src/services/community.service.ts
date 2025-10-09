@@ -1,5 +1,5 @@
 import { auth, db, storage } from '@/config/firebase'
-import { collection, addDoc, serverTimestamp, Timestamp, query, orderBy, limit, startAfter, getDocs, where, doc, updateDoc, setDoc } from 'firebase/firestore'
+import { collection, addDoc, serverTimestamp, Timestamp, query, orderBy, limit, startAfter, getDocs, where, doc, updateDoc } from 'firebase/firestore'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 
 export type AlertType = 'incident' | 'tip' | 'update' | 'warning'
@@ -43,11 +43,12 @@ export class CommunityService {
   }
 
   async listAlerts(opts: { limitCount?: number; after?: any; type?: AlertType; sinceMs?: number; lat?: number; lng?: number }): Promise<{ items: CommunityAlert[]; cursor: any | null }> {
-    const parts = [orderBy('createdAt', 'desc')]
-    if (opts.type) parts.unshift(where('type', '==', opts.type))
-    if (opts.sinceMs) parts.unshift(where('createdAt', '>=', Timestamp.fromMillis(opts.sinceMs)))
-    let q = query(this.alertsCol, ...parts, limit(opts.limitCount || 20))
-    if (opts.after) q = query(this.alertsCol, ...parts, startAfter(opts.after), limit(opts.limitCount || 20))
+    const filters: any[] = []
+    if (opts.type) filters.push(where('type', '==', opts.type))
+    if (opts.sinceMs) filters.push(where('createdAt', '>=', Timestamp.fromMillis(opts.sinceMs)))
+    const baseOrder = orderBy('createdAt', 'desc')
+    let q = query(this.alertsCol, ...filters, baseOrder, limit(opts.limitCount || 20))
+    if (opts.after) q = query(this.alertsCol, ...filters, baseOrder, startAfter(opts.after), limit(opts.limitCount || 20))
     const snap = await getDocs(q)
     const items = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as CommunityAlert[]
     const cursor = snap.docs.length ? snap.docs[snap.docs.length - 1] : null
