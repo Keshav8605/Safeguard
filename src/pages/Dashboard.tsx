@@ -172,14 +172,11 @@ export default function Dashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {[
           { label: 'Add Guardian', href: '/guardians' },
           { label: 'Share Location', href: '/location' },
           { label: 'Report Incident', href: '/incidents' },
-          { label: 'Safe Places', href: '/community' },
-          { label: 'Check-in Timer', href: '/settings' },
-          { label: 'Evidence Vault', href: '/evidence' },
           { label: 'Fake Call', href: '/fake-call' },
         ].map((a) => (
           <motion.div key={a.label} whileHover={{ y: -2 }} className="h-12 rounded border bg-white grid place-items-center shadow-sm font-medium">
